@@ -23,7 +23,9 @@ requires-python = ">=3.10"
 
 dependencies = [
   "prompt_toolkit",
-  "rich"
+  "rich",
+  "langchain",
+  "openai"
 ]
 
 [project.optional-dependencies]
