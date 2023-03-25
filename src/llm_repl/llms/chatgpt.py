@@ -7,7 +7,14 @@ from typing import Optional, Dict, Any, List, Union
 from langchain.callbacks.base import BaseCallbackHandler, CallbackManager
 from langchain.schema import AgentAction, AgentFinish, LLMResult
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+)
+from langchain.chains import ConversationChain
 
 from rich.markdown import Markdown
 
@@ -99,14 +106,29 @@ class ChatGPT(BaseLLM):
     def __init__(self, api_key: str, repl: LLMRepl):
         self.api_key = api_key
         # TODO: Make options configurable
-        self.streaming_mode = False
-        self.model = ChatOpenAI(
+        self.streaming_mode = True
+
+        # TODO: Make it customizable
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                SystemMessagePromptTemplate.from_template(
+                    """
+            If AI does not know the answer to a question, it truthfully says it does not know.
+            """
+                ),
+                MessagesPlaceholder(variable_name="history"),
+                HumanMessagePromptTemplate.from_template("{input}"),
+            ]
+        )
+        llm = ChatOpenAI(
             openai_api_key=self.api_key,
             streaming=self.streaming_mode,
             callback_manager=CallbackManager([StreamingCallbackHandler(repl)]),
             verbose=True,
             # temperature=0,
         )  # type: ignore
+        memory = ConversationBufferMemory(return_messages=True)
+        self.model = ConversationChain(memory=memory, prompt=prompt, llm=llm)
 
     @property
     def is_in_streaming_mode(self) -> bool:
@@ -126,6 +148,5 @@ class ChatGPT(BaseLLM):
         return model
 
     def process(self, msg: str) -> str:
-        msg_record = HumanMessage(content=msg)
-        resp = self.model([msg_record])
-        return resp.content.strip()
+        resp = self.model.predict(input=msg)
+        return resp.strip()
