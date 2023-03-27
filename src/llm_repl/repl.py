@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Type
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
@@ -12,6 +12,13 @@ LLM_CMD_HANDLERS: dict[str, Callable] = {}
 
 
 class LLMRepl:
+
+    INTRO_BANNER = "Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (Ctrl+C to exit)"
+    LOADING_MSG = "Thinking..."
+    SERVER_MSG_TITLE = "LLM"
+    CLIENT_MSG_TITLE = "You"
+    ERROR_MSG_TITLE = "ERROR"
+
     def __init__(self, config: dict[str, Any]):
         self.console = Console()
         self.words: list[str] = [cmd for cmd in LLM_CMD_HANDLERS.keys()]
@@ -20,6 +27,7 @@ class LLMRepl:
         self.session: PromptSession = PromptSession(
             completer=self.completer, key_bindings=self.kb
         )
+        self.config = config
 
         # FIXME: This is temporary for test. This will be passed in the configuration file
         self.client_color = config["style"]["client"]["color"]
@@ -46,15 +54,30 @@ class LLMRepl:
             # Otherwise, insert a newline as usual
             event.app.current_buffer.insert_text("\n")
 
+    def _print_msg(
+        self, title: str, msg: str | Markdown, color: str, justify: str = "left"
+    ):
+        """
+        Prints the message in the console according to the style.
+
+        :param str msg: The message to be printed.
+        :param str title: The title of the message.
+        :param str color: The color of the message.
+        """
+        if not title:
+            self.console.rule(style=color)
+        else:
+            self.console.rule(f"[{color}]{title}", style=color)
+        self.console.print(msg, justify=justify)  # type: ignore
+        self.console.rule(style=color)
+
     def print_client_msg(self, msg: str):
         """
         Prints the client message in the console according to the client style.
 
         :param str msg: The message to be printed.
         """
-        self.console.rule(f"[{self.client_color}]YOU", style=self.client_color)
-        self.console.print(Markdown(msg))
-        self.console.rule(style=self.client_color)
+        self._print_msg(self.CLIENT_MSG_TITLE, Markdown(msg), self.client_color)
 
     def print_server_msg(self, msg: str):
         """
@@ -62,9 +85,7 @@ class LLMRepl:
 
         :param str msg: The message to be printed.
         """
-        self.console.rule(f"[{self.server_color}]LLM", style=self.server_color)
-        self.console.print(Markdown(msg))
-        self.console.rule(style=self.server_color)
+        self._print_msg(self.SERVER_MSG_TITLE, Markdown(msg), self.server_color)
 
     def print_error_msg(self, msg: str):
         """
@@ -72,9 +93,7 @@ class LLMRepl:
 
         :param str msg: The message to be printed.
         """
-        self.console.rule(f"[{self.error_color}]ERROR", style=self.error_color)
-        self.console.print(f"[{self.error_color}]{msg}")
-        self.console.rule(style=self.error_color)
+        self._print_msg(self.ERROR_MSG_TITLE, msg, self.error_color)
 
     def print_misc_msg(self, msg: str):
         """
@@ -82,9 +101,9 @@ class LLMRepl:
 
         :param str msg: The message to be printed.
         """
-        self.console.rule(f"[{self.misc_color}]{msg}", style=self.misc_color)
+        self._print_msg("", msg, self.misc_color, justify="center")
 
-    def run(self):
+    def run(self, model: Type[BaseLLM]):  # type: ignore
         """
         Starts the REPL.
 
@@ -92,20 +111,27 @@ class LLMRepl:
 
         The user can enter new lines in the REPL by pressing Enter once. The
         REPL will terminate when the user presses Enter twice.
+
+        :param BaseLLM model: The LLM model to use.
         """
 
-        self.model = ChatGPT.load(self)
+        self.model = model.load(self)  # type: ignore
         if self.model is None:
             return
+
+        self.print_misc_msg(self.INTRO_BANNER)
 
         while True:
             user_input = self.session.prompt("> ").rstrip()
             self.print_client_msg(user_input)
 
             if not self.model.is_in_streaming_mode:
-                self.print_misc_msg("Thinking...")
+                self.print_misc_msg(self.LOADING_MSG)
             else:
-                self.console.rule(f"[{self.server_color}]LLM", style=self.server_color)
+                self.console.rule(
+                    f"[{self.server_color}]{self.SERVER_MSG_TITLE}",
+                    style=self.server_color,
+                )
 
             resp = self.model.process(user_input)
 
@@ -117,4 +143,3 @@ class LLMRepl:
 
 
 from llm_repl.llms import BaseLLM
-from llm_repl.llms.chatgpt import ChatGPT

@@ -1,4 +1,7 @@
+import argparse
+
 from llm_repl.repl import LLMRepl
+from llm_repl.llms import MODELS
 
 # FIXME: This is temporary for test. This will be passed in the configuration file
 CONFIGS = {
@@ -9,6 +12,17 @@ CONFIGS = {
 }
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="LLM REPL")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="chatgpt",
+        help="The LLM model to use",
+        choices=MODELS.keys(),
+    )
+
+    args = parser.parse_args()
+
     repl = LLMRepl(config=CONFIGS)
 
     # Add key bindings hooks
@@ -17,4 +31,4 @@ if __name__ == "__main__":
         repl.handle_enter(event)
 
     # Run the REPL
-    repl.run()
+    repl.run(MODELS[args.model])
