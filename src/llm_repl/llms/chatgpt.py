@@ -18,7 +18,7 @@ from langchain.chains import ConversationChain
 from rich.markdown import Markdown
 
 from llm_repl.repl import LLMRepl
-from llm_repl.llms import BaseLLM, StreamingCallbackHandler, register_model
+from llm_repl.llms import BaseLLM, StreamingCallbackHandler  # , register_model
 
 
 class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
@@ -54,7 +54,7 @@ class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
 
 
 class ChatGPT(BaseLLM):
-    def __init__(self, api_key: str, repl: LLMRepl):
+    def __init__(self, api_key: str, repl: LLMRepl, model_name: str = "gpt-3.5-turbo"):
         self.api_key = api_key
         # TODO: Make options configurable
         self.streaming_mode = True
@@ -76,10 +76,14 @@ class ChatGPT(BaseLLM):
             streaming=self.streaming_mode,
             callback_manager=CallbackManager([ChatGPTStreamingCallbackHandler(repl)]),
             verbose=True,
-            # temperature=0,
+            model_name=model_name,
         )  # type: ignore
         memory = ConversationBufferMemory(return_messages=True)
         self.model = ConversationChain(memory=memory, prompt=prompt, llm=llm)
+
+    @property
+    def name(self) -> str:
+        return "ChatGPT"
 
     @property
     def is_in_streaming_mode(self) -> bool:
@@ -101,6 +105,3 @@ class ChatGPT(BaseLLM):
     def process(self, msg: str) -> str:
         resp = self.model.predict(input=msg)
         return resp.strip()
-
-
-register_model(ChatGPT)

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
@@ -7,6 +7,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.markdown import Markdown
 
+# from llm_repl.llms import BaseLLM
 
 LLM_CMD_HANDLERS: dict[str, Callable] = {}
 
@@ -34,7 +35,7 @@ class LLMRepl:
         self.server_color = config["style"]["server"]["color"]
         self.error_color = "bold red"
         self.misc_color = "gray"
-        self.model: Optional[BaseLLM] = None
+        self.model = None  # Optional[BaseLLM] = None
 
     def handle_enter(self, event):
         """
@@ -95,15 +96,15 @@ class LLMRepl:
         """
         self._print_msg(self.ERROR_MSG_TITLE, msg, self.error_color)
 
-    def print_misc_msg(self, msg: str):
+    def print_misc_msg(self, msg: str, justify: str = "left"):
         """
         Print the miscellaneous message in the console.
 
         :param str msg: The message to be printed.
         """
-        self._print_msg("", msg, self.misc_color, justify="center")
+        self._print_msg("", msg, self.misc_color, justify=justify)
 
-    def run(self, model: Type[BaseLLM]):  # type: ignore
+    def run(self, model):
         """
         Starts the REPL.
 
@@ -115,11 +116,12 @@ class LLMRepl:
         :param BaseLLM model: The LLM model to use.
         """
 
-        self.model = model.load(self)  # type: ignore
+        self.model = model.load(self)
         if self.model is None:
             return
 
-        self.print_misc_msg(self.INTRO_BANNER)
+        self.print_misc_msg(self.INTRO_BANNER, justify="center")
+        self.print_misc_msg(f"Loaded model: {self.model.name}", justify="center")
 
         while True:
             user_input = self.session.prompt("> ").rstrip()
@@ -140,6 +142,3 @@ class LLMRepl:
             else:
                 self.console.print()
                 self.console.rule(style=self.server_color)
-
-
-from llm_repl.llms import BaseLLM

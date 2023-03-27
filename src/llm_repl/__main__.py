@@ -11,7 +11,8 @@ CONFIGS = {
     }
 }
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(description="LLM REPL")
     parser.add_argument(
         "--model",

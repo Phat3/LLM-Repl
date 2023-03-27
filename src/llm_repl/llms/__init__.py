@@ -6,10 +6,13 @@ from typing import Optional, Dict, Any, List, Union, Type
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AgentFinish, LLMResult
 
-from llm_repl.repl import LLMRepl
-
 
 class BaseLLM(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Return the name of the LLM."""
+
     @property
     @abstractmethod
     def is_in_streaming_mode(self):
@@ -23,6 +26,9 @@ class BaseLLM(ABC):
     @abstractmethod
     def process(self, msg) -> str:
         """Process the user message and return the response."""
+
+
+from llm_repl.repl import LLMRepl
 
 
 class StreamingCallbackHandler(BaseCallbackHandler):
@@ -80,11 +86,11 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Run on agent end."""
 
 
-MODELS: Dict[str, Type[BaseLLM]] = {}
+from llm_repl.llms.chatgpt import ChatGPT
+from llm_repl.llms.chatgpt4 import ChatGPT4
 
-
-def register_model(model: Type[BaseLLM]):
-    """
-    Register a model in the list of available models.
-    """
-    MODELS[model.__name__.lower()] = model  # type: ignore
+# TODO: Implement dynamic loading of models
+MODELS: Dict[str, Type[BaseLLM]] = {
+    "chatgpt": ChatGPT,
+    "chatgpt4": ChatGPT4,
+}
