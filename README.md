@@ -32,9 +32,11 @@ PS: In this initial version of the REPL, the full Markdown syntax is only when r
 
 ![Pretty Printing](./docs/gifs/pretty_printing.gif)
 
-### Model Switching
+### Model Switching on the Fly
 
-The REPL supports the switching between different models. At the moment, the only supported LLMs are `chatgpt` and `chatgpt4`.
+**COMING SOON...**
+
+### Conversation History
 
 **COMING SOON...**
 
