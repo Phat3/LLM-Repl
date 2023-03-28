@@ -16,15 +16,27 @@ The REPL supports the following features:
 
 The REPL won't wait for the model to finish generating the output, but it will start printing the output as soon as it is available.
 
+![Streaming Mode](./docs/gifs/streaming_mode.gif)
+
+### Conversation Memory
+
+The REPL supports conversation memory. This means that the model will remember the previous conversation and will use it to generate the next response.
+
+![Memory](./docs/gifs/memory.gif)
+
 ### Pretty Printing
 
 The REPL supports Markdown rendering both of the input and the output.
 
 PS: In this initial version of the REPL, the full Markdown syntax is only when running the tool in `non-streaming` mode. In `streaming` mode only code sections will be pretty printed.
 
+![Pretty Printing](./docs/gifs/pretty_printing.gif)
+
 ### Model Switching
 
 The REPL supports the switching between different models. At the moment, the only supported LLMs are `chatgpt` and `chatgpt4`.
+
+**COMING SOON...**
 
 ## Installation
 
