@@ -14,11 +14,12 @@ LLM_CMD_HANDLERS: dict[str, Callable] = {}
 
 class LLMRepl:
 
-    INTRO_BANNER = "Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (Ctrl+C to exit)"
     LOADING_MSG = "Thinking..."
     SERVER_MSG_TITLE = "LLM"
     CLIENT_MSG_TITLE = "You"
     ERROR_MSG_TITLE = "ERROR"
+    EXIT_TOKEN = "exit"
+    INTRO_BANNER = f"Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (type '{EXIT_TOKEN}' to quit the application)"
 
     def __init__(self, config: dict[str, Any]):
         self.console = Console()
@@ -35,7 +36,7 @@ class LLMRepl:
         self.server_color = config["style"]["server"]["color"]
         self.error_color = "bold red"
         self.misc_color = "gray"
-        self.model = None  # Optional[BaseLLM] = None
+        self.llm = None  # Optional[BaseLLM] = None
 
     def handle_enter(self, event):
         """
@@ -104,7 +105,7 @@ class LLMRepl:
         """
         self._print_msg("", msg, self.misc_color, justify=justify)
 
-    def run(self, model):
+    def run(self, llm):
         """
         Starts the REPL.
 
@@ -113,21 +114,25 @@ class LLMRepl:
         The user can enter new lines in the REPL by pressing Enter once. The
         REPL will terminate when the user presses Enter twice.
 
-        :param BaseLLM model: The LLM model to use.
+        :param BaseLLM llm: The LLM to use.
         """
 
-        self.model = model.load(self)
-        if self.model is None:
+        self.llm = llm.load(self)
+        if self.llm is None:
             return
 
         self.print_misc_msg(self.INTRO_BANNER, justify="center")
-        self.print_misc_msg(f"Loaded model: {self.model.name}", justify="center")
+        self.print_misc_msg(f"Loaded model: {self.llm.name}", justify="center")
 
         while True:
             user_input = self.session.prompt("> ").rstrip()
+            if user_input == self.EXIT_TOKEN:
+                self.print_misc_msg("Bye!")
+                break
+
             self.print_client_msg(user_input)
 
-            if not self.model.is_in_streaming_mode:
+            if not self.llm.is_in_streaming_mode:
                 self.print_misc_msg(self.LOADING_MSG)
             else:
                 self.console.rule(
@@ -135,9 +140,9 @@ class LLMRepl:
                     style=self.server_color,
                 )
 
-            resp = self.model.process(user_input)
+            resp = self.llm.process(user_input)
 
-            if not self.model.is_in_streaming_mode:
+            if not self.llm.is_in_streaming_mode:
                 self.print_server_msg(resp)
             else:
                 self.console.print()

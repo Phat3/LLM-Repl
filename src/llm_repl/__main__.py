@@ -15,7 +15,7 @@ CONFIGS = {
 def main():
     parser = argparse.ArgumentParser(description="LLM REPL")
     parser.add_argument(
-        "--model",
+        "--llm",
         type=str,
         default="chatgpt",
         help="The LLM model to use",
@@ -32,4 +32,4 @@ def main():
         repl.handle_enter(event)
 
     # Run the REPL
-    repl.run(MODELS[args.model])
+    repl.run(MODELS[args.llm])
