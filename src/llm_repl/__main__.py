@@ -26,10 +26,20 @@ def main():
 
     repl = LLMRepl(config=CONFIGS)
 
-    # Add key bindings hooks
+    # Enable multiline with double enter
     @repl.kb.add("enter")
     def _(event):
         repl.handle_enter(event)
+
+    # Exit gracefully with Ctrl+D
+    @repl.kb.add("c-d")
+    def _(_):
+        repl._exit()
+
+    # Exit gracefully with Ctrl+C
+    @repl.kb.add("c-c")
+    def _(_):
+        repl._exit()
 
     # Run the REPL
     repl.run(MODELS[args.llm])

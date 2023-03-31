@@ -15,6 +15,11 @@ class BaseLLM(ABC):
 
     @property
     @abstractmethod
+    def info(self) -> str:
+        """Return the info of the LLM."""
+
+    @property
+    @abstractmethod
     def is_in_streaming_mode(self):
         """Return whether the LLM is in streaming mode."""
 
@@ -26,6 +31,12 @@ class BaseLLM(ABC):
     @abstractmethod
     def process(self, msg) -> str:
         """Process the user message and return the response."""
+
+    # FIXME: Define a proper type for the custom command
+    @property
+    def custom_commands(self) -> List[Any]:
+        """Return the list of the custom commands of the LLM."""
+        return []
 
 
 from llm_repl.repl import LLMRepl

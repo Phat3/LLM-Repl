@@ -14,6 +14,10 @@ class ChatGPT4(ChatGPT):
     def name(self) -> str:
         return "ChatGPT-4"
 
+    @property
+    def info(self) -> str:
+        return "ChatGPT based on OpenAI's GPT-4 model."
+
     @classmethod
     def load(cls, repl: LLMRepl) -> Optional[BaseLLM]:
         api_key = os.getenv("OPENAI_API_KEY")

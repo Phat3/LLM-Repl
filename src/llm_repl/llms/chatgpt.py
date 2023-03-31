@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 from langchain.callbacks.base import CallbackManager
 from langchain.chat_models import ChatOpenAI
@@ -86,8 +86,20 @@ class ChatGPT(BaseLLM):
         return "ChatGPT"
 
     @property
+    def info(self) -> str:
+        return "ChatGPT based on OpenAI's GPT-3.5-turbo model."
+
+    @property
     def is_in_streaming_mode(self) -> bool:
         return self.streaming_mode
+
+    def _say_hi(self) -> None:
+        pass
+
+    # FIXME: Define a proper type for the custom command
+    @property
+    def custom_commands(self) -> List[Any]:
+        return [{"name": "say_hi", "function": self._say_hi}]
 
     @classmethod
     def load(cls, repl: LLMRepl) -> Optional[BaseLLM]:

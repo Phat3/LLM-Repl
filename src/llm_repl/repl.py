@@ -1,15 +1,13 @@
-from typing import Any, Callable
+import sys
+
+from typing import Any
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import WordCompleter, NestedCompleter
 from prompt_toolkit.key_binding import KeyBindings
 
 from rich.console import Console
 from rich.markdown import Markdown
-
-# from llm_repl.llms import BaseLLM
-
-LLM_CMD_HANDLERS: dict[str, Callable] = {}
 
 
 class LLMRepl:
@@ -18,16 +16,24 @@ class LLMRepl:
     SERVER_MSG_TITLE = "LLM"
     CLIENT_MSG_TITLE = "You"
     ERROR_MSG_TITLE = "ERROR"
-    EXIT_TOKEN = "exit"
-    INTRO_BANNER = f"Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (type '{EXIT_TOKEN}' to quit the application)"
+    INTRO_BANNER = "Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (type 'exit' or 'quit' to quit the application)"
 
     def __init__(self, config: dict[str, Any]):
         self.console = Console()
-        self.words: list[str] = [cmd for cmd in LLM_CMD_HANDLERS.keys()]
-        self.completer = WordCompleter(self.words)
+        self.completer_function_table = self._basic_completer_function_table
+        # WordCompleter has a weird bug that keeps popping up the completer
+        # tooltip even in the middle of a sentence. NestedCompleter does
+        # not have this bug.
+        self.completer = NestedCompleter.from_nested_dict(
+            {cmd: None for cmd in self.completer_function_table.keys()}
+        )
         self.kb = KeyBindings()
         self.session: PromptSession = PromptSession(
-            completer=self.completer, key_bindings=self.kb
+            completer=self.completer,
+            key_bindings=self.kb,
+            vi_mode=True,
+            complete_while_typing=True,
+            complete_in_thread=True,
         )
         self.config = config
 
@@ -36,7 +42,28 @@ class LLMRepl:
         self.server_color = config["style"]["server"]["color"]
         self.error_color = "bold red"
         self.misc_color = "gray"
-        self.llm = None  # Optional[BaseLLM] = None
+        self.llm = None
+
+    # ----------------------------- COMMANDS -----------------------------
+
+    def _info(self):
+        llm_info = self.llm.info  # type: ignore
+        self.print_misc_msg(llm_info)
+
+    def _exit(self):
+        self.console.print()
+        self.print_misc_msg("Bye!")
+        sys.exit(0)
+
+    @property
+    def _basic_completer_function_table(self):
+        return {
+            "info": self._info,
+            "exit": self._exit,
+            "quit": self._exit,
+        }
+
+    # ----------------------------- END COMMANDS -----------------------------
 
     def handle_enter(self, event):
         """
@@ -121,14 +148,31 @@ class LLMRepl:
         if self.llm is None:
             return
 
+        custom_commands_table = {}
+        for custom_command in self.llm.custom_commands:
+            custom_commands_table[custom_command["name"]] = custom_command["function"]
+
+        self.completer_function_table = (
+            self._basic_completer_function_table | custom_commands_table
+        )
+        self.session.completer = WordCompleter(
+            [cmd for cmd in self.completer_function_table.keys()]
+        )
+        self.session.app.invalidate()
+
         self.print_misc_msg(self.INTRO_BANNER, justify="center")
         self.print_misc_msg(f"Loaded model: {self.llm.name}", justify="center")
 
         while True:
             user_input = self.session.prompt("> ").rstrip()
-            if user_input == self.EXIT_TOKEN:
-                self.print_misc_msg("Bye!")
-                break
+
+            if user_input in self.completer_function_table:
+                self.completer_function_table[user_input]()
+
+                # self.completer_function_table = self._basic_completer_function_table
+                # self.session.completer = WordCompleter([cmd for cmd in self.completer_function_table.keys()])
+                # self.session.app.invalidate()
+                continue
 
             self.print_client_msg(user_input)
 
