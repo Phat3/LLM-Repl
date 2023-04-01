@@ -6,6 +6,8 @@ from typing import Optional, Dict, Any, List, Union, Type
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AgentFinish, LLMResult
 
+from llm_repl.repls import BaseREPL
+
 
 class BaseLLM(ABC):
     @property
@@ -25,7 +27,7 @@ class BaseLLM(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, repl: LLMRepl) -> Optional[BaseLLM]:
+    def load(cls, repl: BaseREPL) -> BaseLLM | None:
         """Load the LLM."""
 
     @abstractmethod
@@ -37,9 +39,6 @@ class BaseLLM(ABC):
     def custom_commands(self) -> List[Any]:
         """Return the list of the custom commands of the LLM."""
         return []
-
-
-from llm_repl.repl import LLMRepl
 
 
 class StreamingCallbackHandler(BaseCallbackHandler):
@@ -97,11 +96,4 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Run on agent end."""
 
 
-from llm_repl.llms.chatgpt import ChatGPT
-from llm_repl.llms.chatgpt4 import ChatGPT4
-
-# TODO: Implement dynamic loading of models
-MODELS: Dict[str, Type[BaseLLM]] = {
-    "chatgpt": ChatGPT,
-    "chatgpt4": ChatGPT4,
-}
+MODELS: Dict[str, Type[BaseLLM]] = {}

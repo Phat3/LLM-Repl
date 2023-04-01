@@ -26,7 +26,8 @@ dependencies = [
   "prompt_toolkit",
   "rich",
   "langchain",
-  "openai"
+  "openai",
+  "pydantic"
 ]
 
 [project.optional-dependencies]

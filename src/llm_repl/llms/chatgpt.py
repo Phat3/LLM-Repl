@@ -17,17 +17,17 @@ from langchain.chains import ConversationChain
 
 from rich.markdown import Markdown
 
-from llm_repl.repl import LLMRepl
-from llm_repl.llms import BaseLLM, StreamingCallbackHandler  # , register_model
+from llm_repl.repls import BaseREPL
+from llm_repl.llms import BaseLLM, StreamingCallbackHandler, MODELS  # , register_model
 
 
 class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
     """Callback handler for streaming. Only works with LLMs that support streaming."""
 
-    def __init__(self, repl: LLMRepl) -> None:
+    def __init__(self, repl: BaseREPL) -> None:
         super().__init__()
-        self.console = repl.console
-        self.server_color = repl.server_color
+        self.repl = repl
+        self.server_color = repl.style.server_msg_color
         self.is_code_mode = False
         self.code_block = ""
 
@@ -39,7 +39,7 @@ class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
             token = ""
         if token == "``" or token == "```":
             if self.code_block:
-                self.console.print(Markdown(self.code_block + "```\n"))
+                self.repl.print(Markdown(self.code_block + "```\n"))
                 self.code_block = ""
                 self.is_code_mode = not self.is_code_mode
                 return
@@ -50,11 +50,11 @@ class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
         else:
             if token == "`\n" or token == "`\n\n":
                 token = "\n"
-            self.console.print(token, end="")
+            self.repl.print(token, end="")
 
 
 class ChatGPT(BaseLLM):
-    def __init__(self, api_key: str, repl: LLMRepl, model_name: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: str, repl: BaseREPL, model_name: str = "gpt-3.5-turbo"):
         self.api_key = api_key
         # TODO: Make options configurable
         self.streaming_mode = True
@@ -102,7 +102,7 @@ class ChatGPT(BaseLLM):
         return [{"name": "say_hi", "function": self._say_hi}]
 
     @classmethod
-    def load(cls, repl: LLMRepl) -> Optional[BaseLLM]:
+    def load(cls, repl: BaseREPL) -> Optional[BaseLLM]:
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key is None:
             repl.print_error_msg(
@@ -117,3 +117,6 @@ class ChatGPT(BaseLLM):
     def process(self, msg: str) -> str:
         resp = self.model.predict(input=msg)
         return resp.strip()
+
+
+MODELS["chatgpt"] = ChatGPT
