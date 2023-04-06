@@ -27,7 +27,6 @@ class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
     def __init__(self, repl: BaseREPL) -> None:
         super().__init__()
         self.repl = repl
-        self.server_color = repl.style.server_msg_color
         self.is_code_mode = False
         self.code_block = ""
 
