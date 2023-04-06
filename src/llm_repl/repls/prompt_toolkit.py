@@ -9,11 +9,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.markdown import Markdown
 
-from llm_repl.llms import BaseLLM, MODELS
-from llm_repl.repls import BaseREPL, REPLStyle
+from llm_repl.llms import BaseLLM, LLMS
+from llm_repl.repls import BaseREPL, REPLStyle, REPLS
 
 
-class PromptToolkitRepl(BaseREPL):
+class PromptToolkitREPL(BaseREPL):
 
     LOADING_MSG = "Thinking..."
     SERVER_MSG_TITLE = "LLM"
@@ -21,7 +21,7 @@ class PromptToolkitRepl(BaseREPL):
     ERROR_MSG_TITLE = "ERROR"
     INTRO_BANNER = "Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (type 'exit' or 'quit' to quit the application)"
 
-    def __init__(self, style: REPLStyle):
+    def __init__(self, **kwargs):
         self.console = Console()
         self.completer_function_table = self._basic_completer_function_table
         self.kb = KeyBindings()
@@ -31,7 +31,7 @@ class PromptToolkitRepl(BaseREPL):
             complete_while_typing=True,
             complete_in_thread=True,
         )
-        self._style: REPLStyle = style
+        self._style: REPLStyle = kwargs["style"]
         # This will hold the reference to the model currently loaded
         self.llm: BaseLLM | None = None
 
@@ -62,11 +62,11 @@ class PromptToolkitRepl(BaseREPL):
 
         :param str llm_name: The name of the LLM to load
         """
-        if llm_name not in MODELS:
+        if llm_name not in LLMS:
             self.print_error_msg(f"LLM {llm_name} not found")
             return
 
-        llm = MODELS[llm_name]
+        llm = LLMS[llm_name]
         self.llm = llm.load(self)  # type: ignore
         if self.llm is None:
             self.print_error_msg(f"Failed to load LLM {llm_name}")
@@ -176,7 +176,26 @@ class PromptToolkitRepl(BaseREPL):
         justify = kwargs.pop("justify", "left")
         self._print_msg("", msg, self._style.misc_msg_color, justify=justify)
 
-    def run(self, llm_name):
+    def _setup_keybindings(self):
+        """
+        Setup keybindings for the prompt
+        """
+
+        @self.kb.add("enter")
+        def _(event):
+            self.handle_enter(event)
+
+        # Exit gracefully with Ctrl+D
+        @self.kb.add("c-d")
+        def _(_):
+            self.exit()
+
+        # Exit gracefully with Ctrl+C
+        @self.kb.add("c-c")
+        def _(_):
+            self.exit()
+
+    async def run(self, llm_name):
         """
         Starts the REPL.
 
@@ -187,15 +206,19 @@ class PromptToolkitRepl(BaseREPL):
 
         :param BaseLLM llm: The LLM to use.
         """
+        self._setup_keybindings()
         self.load_llm(llm_name)
-        assert self.llm is not None
+
+        if self.llm is None:
+            return
 
         self.print_misc_msg(
             f"{self.INTRO_BANNER}\n\nLoaded model: {self.llm.name}", justify="center"
         )
 
         while True:
-            user_input = self.session.prompt("> ").rstrip()
+            user_input = await self.session.prompt_async("> ")
+            user_input = user_input.rstrip()
             # Check if the input is a custom command
             if user_input in self.completer_function_table:
                 self.completer_function_table[user_input]()
@@ -223,3 +246,5 @@ class PromptToolkitRepl(BaseREPL):
             else:
                 self.console.print()
                 self.console.rule(style=self._style.server_msg_color)
+
+REPLS["prompt_toolkit"] = PromptToolkitREPL

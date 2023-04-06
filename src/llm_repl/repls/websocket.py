@@ -1,23 +1,22 @@
-import websockets
 import asyncio
 
 from typing import Any
 from websockets.server import serve
 
-from llm_repl.repls import BaseREPL, REPLStyle
+from llm_repl.repls import BaseREPL, REPLS
 
 
-class WebsockerREPL(BaseREPL):
+class WebsocketREPL(BaseREPL):
     """
     Base class with all the methods that a REPL should implement
     """
 
-    @property
-    def style(self) -> REPLStyle:
+    def __init__(self, **kwargs):
         """
-        Return the style of the REPL
+        Constructor
+
+        :param REPLStyle style: The style of the REPL
         """
-        raise NotImplementedError
 
     def info(self) -> str:
         """
@@ -29,7 +28,6 @@ class WebsockerREPL(BaseREPL):
         """
         Exit the application
         """
-        pass
 
     def load_llm(self, llm_name: str):
         """
@@ -37,7 +35,6 @@ class WebsockerREPL(BaseREPL):
 
         :param str llm_name: The name of the LLM to load
         """
-        pass
 
     def print(self, msg: Any, **kwargs):
         """
@@ -73,7 +70,7 @@ class WebsockerREPL(BaseREPL):
 
         :param str msg: The message to be printed.
         """
-    
+
     async def _handle_msg(self, websocket):
         async for message in websocket:
             print(f"Received message: {message}")
@@ -88,3 +85,5 @@ class WebsockerREPL(BaseREPL):
         print("Starting websocket REPL")
         async with serve(self._handle_msg, "localhost", 8765):
             await asyncio.Future()
+
+REPLS["websocket"] = WebsocketREPL

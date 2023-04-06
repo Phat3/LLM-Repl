@@ -96,4 +96,4 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Run on agent end."""
 
 
-MODELS: Dict[str, Type[BaseLLM]] = {}
+LLMS: Dict[str, Type[BaseLLM]] = {}

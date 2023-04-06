@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Dict, Type
 
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
@@ -19,6 +19,12 @@ class BaseREPL(ABC):
     """
     Base class with all the methods that a REPL should implement
     """
+
+    @abstractmethod
+    def __init__(self, **kwargs):
+        """
+        Constructor
+        """
 
     @abstractmethod
     def info(self):
@@ -81,9 +87,11 @@ class BaseREPL(ABC):
         """
 
     @abstractmethod
-    def run(self, llm_name):
+    async def run(self, llm_name):
         """
         Starts the REPL
 
         :param str llm_name: The name of the LLM to load
         """
+
+REPLS: Dict[str, Type[BaseREPL]] = {}

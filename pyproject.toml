@@ -27,7 +27,8 @@ dependencies = [
   "rich",
   "langchain",
   "openai",
-  "pydantic"
+  "pydantic",
+  "websockets"
 ]
 
 [project.optional-dependencies]
