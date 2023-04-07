@@ -9,6 +9,8 @@ class WebsocketREPLInstance(BaseREPL):
     Base class with all the methods that a REPL should implement
     """
 
+    END_OF_MESSAGE_TOKEN = "EOF"
+
     def __init__(self, **kwargs):
         """
         Constructor
@@ -16,6 +18,7 @@ class WebsocketREPLInstance(BaseREPL):
         :param REPLStyle style: The style of the REPL
         """
         self.llm = None
+        self.websocket = kwargs.get("websocket")
 
     def load_llm(self, llm_name: str):
         """
@@ -26,12 +29,13 @@ class WebsocketREPLInstance(BaseREPL):
         llm = LLMS[llm_name]
         self.llm = llm.load(self)  # type: ignore
 
-    def print(self, msg: Any, **kwargs):
+    async def print(self, msg: Any, **kwargs):
         """
         Simply prints the message as a normal print statement.
 
         :param Any msg: The message to be printed.
         """
+        await self.websocket.send(msg)  # type: ignore
 
     def print_error_msg(self, msg: str):
         """
@@ -45,18 +49,17 @@ class WebsocketREPLInstance(BaseREPL):
         Handle the client message received from the websocket
 
         :param str msg: The message received from the websocket
-        :param Websocket websocket: The websocket instance
         """
         message = kwargs.get("msg")
-        websocket = kwargs.get("websocket")
-        if message is None or websocket is None:
+        if message is None or self.websocket is None:
             return
 
         message = message.strip()
         print(f"Received message: {message}")
-        resp = self.llm.process(message)  # type: ignore
-        print(f"Sending response: {resp}")
-        await websocket.send(resp)
+        resp = await self.llm.process(message)  # type: ignore
+        if not self.llm.is_in_streaming_mode:  # type: ignore
+            await self.websocket.send(resp)
+        await self.websocket.send(self.END_OF_MESSAGE_TOKEN)  # type: ignore
 
     async def run(self, llm_name):
         """

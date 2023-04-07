@@ -37,7 +37,7 @@ class BaseREPL(ABC):
         """
 
     @abstractmethod
-    def print(self, msg: Any, **kwargs):
+    async def print(self, msg: Any, **kwargs):
         """
         Simply prints the message as a normal print statement.
 

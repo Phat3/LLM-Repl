@@ -28,7 +28,7 @@ class WebsocketREPL(BaseREPL):
         :param str llm_name: The name of the LLM to load
         """
 
-    def print(self, msg: Any, **kwargs):
+    async def print(self, msg: Any, **kwargs):
         """
         Simply prints the message as a normal print statement.
 
@@ -62,11 +62,11 @@ class WebsocketREPL(BaseREPL):
         # if token is None:
         #     return
 
-        instance = WebsocketREPLInstance()
+        instance = WebsocketREPLInstance(websocket=websocket)
         instance.load_llm(self.llm_name)
 
         async for msg in websocket:
-            await instance.handle_msg(msg=msg, websocket=websocket)
+            await instance.handle_msg(msg=msg)
 
     async def run(self, llm_name):
         """

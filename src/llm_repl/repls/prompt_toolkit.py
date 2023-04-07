@@ -34,6 +34,9 @@ class PromptToolkitREPL(BaseREPL):
         self._style: REPLStyle = kwargs["style"]
         # This will hold the reference to the model currently loaded
         self.llm: BaseLLM | None = None
+        self.parse_markdown = True
+        self.is_code_mode = False
+        self.code_block = ""
 
     @property
     def style(self) -> REPLStyle:
@@ -131,13 +134,34 @@ class PromptToolkitREPL(BaseREPL):
         self.console.print(msg, justify=justify)  # type: ignore
         self.console.rule(style=color)
 
-    def print(self, msg: Any, **kwargs):
+    async def print(self, msg: Any, **kwargs):
         """
         Simply prints the message as a normal print statement.
 
         :param str msg: The message to be printed.
         """
-        self.console.print(msg, **kwargs)
+        if not self.parse_markdown:
+            self.console.print(msg, end="")
+            return
+
+        # FIXME: This is just an hack to make the code blocks work
+        #        This should be done properly in the future
+        if msg == "\n\n":
+            msg = ""
+        if msg == "``" or msg == "```":
+            if self.code_block:
+                self.console.print(Markdown(self.code_block + "```\n"))
+                self.code_block = ""
+                self.is_code_mode = not self.is_code_mode
+                return
+            self.is_code_mode = not self.is_code_mode
+            self.code_block = msg
+        elif self.is_code_mode:
+            self.code_block += msg
+        else:
+            if msg == "`\n" or msg == "`\n\n":
+                msg = "\n"
+            self.console.print(msg, end="")
 
     def print_client_msg(self, msg: str):
         """
@@ -225,7 +249,7 @@ class PromptToolkitREPL(BaseREPL):
                 f"[{self._style.server_msg_color}]{self.SERVER_MSG_TITLE}",
                 style=self._style.server_msg_color,
             )
-        resp = llm.process(user_input)
+        resp = await llm.process(user_input)
         if not llm.is_in_streaming_mode:
             self.print_server_msg(resp)
         else:
