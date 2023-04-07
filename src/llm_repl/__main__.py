@@ -6,7 +6,7 @@ import argparse
 import pydantic
 
 from llm_repl.repls import REPLStyle, REPLS
-from llm_repl.llms import LLMS 
+from llm_repl.llms import LLMS
 
 LLMS_DIR = os.path.join(os.path.dirname(__file__), "llms")
 REPLS_DIR = os.path.join(os.path.dirname(__file__), "repls")
@@ -20,17 +20,21 @@ CONFIGS = {
 }
 
 
-# Load all the LLMs in the llms/ directory
-for file_name in os.listdir(LLMS_DIR):
-    if file_name.endswith(".py") and file_name != "__init__.py":
-        module_name = file_name[:-3]
-        module = importlib.import_module(f"llm_repl.llms.{module_name}")
+def load_modules_from_directory(path):
+    for root, _, files in os.walk(path):
+        for file in files:
+            if file.endswith(".py") and not file.startswith("__init__"):
+                module_name = file[:-3]
+                module_path = os.path.join(root, file)
 
-# Load all the REPLs in the repls/ directory
-for file_name in os.listdir(REPLS_DIR):
-    if file_name.endswith(".py") and file_name != "__init__.py":
-        module_name = file_name[:-3]
-        module = importlib.import_module(f"llm_repl.repls.{module_name}")
+                # Load the module
+                spec = importlib.util.spec_from_file_location(module_name, module_path)  # type: ignore
+                module = importlib.util.module_from_spec(spec)  # type: ignore
+                spec.loader.exec_module(module)
+
+
+load_modules_from_directory(LLMS_DIR)
+load_modules_from_directory(REPLS_DIR)
 
 
 def main():

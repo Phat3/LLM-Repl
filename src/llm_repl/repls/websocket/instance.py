@@ -1,42 +1,31 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Type
+from typing import Any
 
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
-
-from llm_repl.repls import websocket
+from llm_repl.repls import BaseREPL
+from llm_repl.llms import LLMS
 
 
-class REPLStyle(BaseModel):
-    """
-    The style of the REPL
-    """
-
-    client_msg_color: str
-    server_msg_color: str
-    error_msg_color: str
-    misc_msg_color: str
-
-
-class BaseREPL(ABC):
+class WebsocketREPLInstance(BaseREPL):
     """
     Base class with all the methods that a REPL should implement
     """
 
-    @abstractmethod
     def __init__(self, **kwargs):
         """
         Constructor
-        """
 
-    @abstractmethod
+        :param REPLStyle style: The style of the REPL
+        """
+        self.llm = None
+
     def load_llm(self, llm_name: str):
         """
         Load the LLM specified by the name and its custom commands if any
 
         :param str llm_name: The name of the LLM to load
         """
+        llm = LLMS[llm_name]
+        self.llm = llm.load(self)  # type: ignore
 
-    @abstractmethod
     def print(self, msg: Any, **kwargs):
         """
         Simply prints the message as a normal print statement.
@@ -53,16 +42,25 @@ class BaseREPL(ABC):
 
     async def handle_msg(self, *args, **kwargs):
         """
-        Handle client message
-        """
+        Handle the client message received from the websocket
 
-    @abstractmethod
+        :param str msg: The message received from the websocket
+        :param Websocket websocket: The websocket instance
+        """
+        message = kwargs.get("msg")
+        websocket = kwargs.get("websocket")
+        if message is None or websocket is None:
+            return
+
+        message = message.strip()
+        print(f"Received message: {message}")
+        resp = self.llm.process(message)  # type: ignore
+        print(f"Sending response: {resp}")
+        await websocket.send(resp)
+
     async def run(self, llm_name):
         """
         Starts the REPL
 
         :param str llm_name: The name of the LLM to load
         """
-
-
-REPLS: Dict[str, Type[BaseREPL]] = {}

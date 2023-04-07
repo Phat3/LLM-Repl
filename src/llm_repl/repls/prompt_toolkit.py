@@ -195,6 +195,43 @@ class PromptToolkitREPL(BaseREPL):
         def _(_):
             self.exit()
 
+    async def handle_msg(self, *args, **kwargs):
+        """
+        Handle the user input and send it to the LLM
+
+        :param BaseLLM llm: The LLM to send the message to
+        """
+        llm: BaseLLM = kwargs["llm"]
+        user_input = await self.session.prompt_async("> ")
+        user_input = user_input.rstrip()
+        # Check if the input is a custom command
+        if user_input in self.completer_function_table:
+            self.completer_function_table[user_input]()
+            return
+
+        # Otherwise, process the input as a normal message that has
+        # to be sent to the LLM
+        self.print_client_msg(user_input)
+        if not llm.is_in_streaming_mode:
+            self.print_misc_msg(self.LOADING_MSG)
+        # If the LLM is in streaming mode, The LLM itself will print the
+        # response character by character and we just need to print a
+        # the "start" and "end" rule line.
+        # This can in theory be done by the StreamingCallback provided
+        # by langchain but it appears to be broken in this version of
+        # langchain.
+        else:
+            self.console.rule(
+                f"[{self._style.server_msg_color}]{self.SERVER_MSG_TITLE}",
+                style=self._style.server_msg_color,
+            )
+        resp = llm.process(user_input)
+        if not llm.is_in_streaming_mode:
+            self.print_server_msg(resp)
+        else:
+            self.console.print()
+            self.console.rule(style=self._style.server_msg_color)
+
     async def run(self, llm_name):
         """
         Starts the REPL.
@@ -217,34 +254,7 @@ class PromptToolkitREPL(BaseREPL):
         )
 
         while True:
-            user_input = await self.session.prompt_async("> ")
-            user_input = user_input.rstrip()
-            # Check if the input is a custom command
-            if user_input in self.completer_function_table:
-                self.completer_function_table[user_input]()
-                continue
+            await self.handle_msg(llm=self.llm)
 
-            # Otherwise, process the input as a normal message that has
-            # to be sent to the LLM
-            self.print_client_msg(user_input)
-            if not self.llm.is_in_streaming_mode:
-                self.print_misc_msg(self.LOADING_MSG)
-            # If the LLM is in streaming mode, The LLM itself will print the
-            # response character by character and we just need to print a
-            # the "start" and "end" rule line.
-            # This can in theory be done by the StreamingCallback provided
-            # by langchain but it appears to be broken in this version of
-            # langchain.
-            else:
-                self.console.rule(
-                    f"[{self._style.server_msg_color}]{self.SERVER_MSG_TITLE}",
-                    style=self._style.server_msg_color,
-                )
-            resp = self.llm.process(user_input)
-            if not self.llm.is_in_streaming_mode:
-                self.print_server_msg(resp)
-            else:
-                self.console.print()
-                self.console.rule(style=self._style.server_msg_color)
 
 REPLS["prompt_toolkit"] = PromptToolkitREPL

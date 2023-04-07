@@ -18,7 +18,7 @@ from langchain.chains import ConversationChain
 from rich.markdown import Markdown
 
 from llm_repl.repls import BaseREPL
-from llm_repl.llms import BaseLLM, StreamingCallbackHandler, LLMS# , register_model
+from llm_repl.llms import BaseLLM, StreamingCallbackHandler, LLMS
 
 
 class ChatGPTStreamingCallbackHandler(StreamingCallbackHandler):
