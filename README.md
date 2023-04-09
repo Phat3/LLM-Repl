@@ -3,6 +3,7 @@
 ## What is this?
 
 The goal of this project is to create a simple, interactive **REPL** (Read-Eval-Print-Loop) that allows users to interact with a variety of Large Language Models (**LLMs**). The project is mainly built on top of two Python libraries: [langchain](https://github.com/hwchase17/langchain), which provides a convenient and flexible interface for working with LLMs, and [rich](https://github.com/Textualize/rich) which provides a user-friendly interface for the REPL.
+The REPL can also be launched in **headledss** mode and it can be interacted with using **websocket**.
 
 Currently, the project is in development and only supports interaction with the ChatGPT but it has been structure to make it easy to extend it use any LLMs, including custom ones (by extending `BaseLLM` in `./src/llm_repl/llms/__init__.py`).
 
@@ -31,6 +32,16 @@ The REPL supports Markdown rendering both of the input and the output.
 PS: In this initial version of the REPL, the full Markdown syntax is only when running the tool in `non-streaming` mode. In `streaming` mode only code sections will be pretty printed.
 
 ![Pretty Printing](./docs/gifs/pretty_printing.gif)
+
+## Headless Mode
+
+The REPL can be run in headless mode. This means that it can be interacted with using a websocket. This is useful for integrating the REPL with other applications / other UIs.
+
+To launch the REPL in headless mode, run the following command:
+
+```bash
+llm-repl --repl websocket --port <PORT>
+```
 
 ### Model Switching on the Fly
 
