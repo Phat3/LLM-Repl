@@ -20,6 +20,7 @@ class WebsocketREPL(BaseREPL):
         :param REPLStyle style: The style of the REPL
         """
         self.llm_name = None
+        self.port = kwargs.get("port", 8765)
 
     def load_llm(self, llm_name: str):
         """
@@ -77,8 +78,8 @@ class WebsocketREPL(BaseREPL):
         self.llm_name = llm_name
         # TODO: Check if the chosen LLM can be used
         # TODO: Make the port configurable
-        print("Starting websocket REPL")
-        async with serve(self.handle_msg, "localhost", 8765):
+        print("Starting websocket REPL on port", self.port, "...")
+        async with serve(self.handle_msg, "localhost", self.port):
             await asyncio.Future()
 
 

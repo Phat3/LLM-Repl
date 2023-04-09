@@ -53,6 +53,9 @@ def main():
         help="The REPL interface to use (DEFAULT: prompt_toolkit)",
         choices=REPLS.keys(),
     )
+    parser.add_argument(
+        "--port", type=int, help="The port to connect to the LLM server"
+    )
 
     args = parser.parse_args()
 
@@ -62,5 +65,5 @@ def main():
         print("Invalid style configuration")
         sys.exit(1)
 
-    repl = REPLS[args.repl](style=style)
+    repl = REPLS[args.repl](style=style, port=args.port)
     asyncio.get_event_loop().run_until_complete(repl.run(args.llm))
