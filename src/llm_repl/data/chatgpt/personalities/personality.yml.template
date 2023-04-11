@@ -1,0 +1,6 @@
+# Description of the personality, not used by the bot
+description:
+# Personality description used as input in teh system prompt
+persona "Default personality for BOT based on ChatGPT"lity:
+# List of messages used to prefill the chat history
+memories:

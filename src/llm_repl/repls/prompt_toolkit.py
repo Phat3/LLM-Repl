@@ -9,6 +9,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.markdown import Markdown
 
+from llm_repl import exceptions
 from llm_repl.llms import BaseLLM, LLMS
 from llm_repl.repls import BaseREPL, REPLStyle, REPLS
 
@@ -59,21 +60,20 @@ class PromptToolkitREPL(BaseREPL):
         self.console.rule(style=self._style.misc_msg_color)
         sys.exit(0)
 
-    def load_llm(self, llm_name: str):
+    def load_llm(self, llm_name: str, **llm_kwargs):
         """
         Load the LLM specified by the name and its custom commands if any
 
         :param str llm_name: The name of the LLM to load
+
+        :raises exceptions.LLMNotFound: if the LLM is not found
+        :raises exceptions.LLMException: if the LLM fails to load
         """
         if llm_name not in LLMS:
-            self.print_error_msg(f"LLM {llm_name} not found")
-            return
+            raise exceptions.LLMNotFound(llm_name)
 
         llm = LLMS[llm_name]
         self.llm = llm.load(self)  # type: ignore
-        if self.llm is None:
-            self.print_error_msg(f"Failed to load LLM {llm_name}")
-            return
 
         # Add LLMs specific custom commands to the completer and to the function table
         custom_commands_table = {}
@@ -256,7 +256,7 @@ class PromptToolkitREPL(BaseREPL):
             self.console.print()
             self.console.rule(style=self._style.server_msg_color)
 
-    async def run(self, llm_name):
+    async def run(self, llm_name: str, **llm_kwargs):
         """
         Starts the REPL.
 
@@ -268,13 +268,14 @@ class PromptToolkitREPL(BaseREPL):
         :param BaseLLM llm: The LLM to use.
         """
         self._setup_keybindings()
-        self.load_llm(llm_name)
-
-        if self.llm is None:
+        try:
+            self.load_llm(llm_name)
+        except exceptions.LLMException as e:
+            self.print_error_msg(e.msg)
             return
 
         self.print_misc_msg(
-            f"{self.INTRO_BANNER}\n\nLoaded model: {self.llm.name}", justify="center"
+            f"{self.INTRO_BANNER}\n\nLoaded model: {self.llm.name}", justify="center"  # type: ignore
         )
 
         while True:

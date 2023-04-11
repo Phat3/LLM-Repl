@@ -53,3 +53,6 @@ W0142,C0301,C0321,C0322,C0324,R,W0232,E1001,W0212,W0703,C,I0011,I0012,I0013,E001
 
 [project.scripts]
 llm-repl = "llm_repl.__main__:main"
+
+[tool.setuptools.package-data]
+"mypkg.data" = ["*.yml"]

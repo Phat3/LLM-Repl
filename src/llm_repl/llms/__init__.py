@@ -24,7 +24,7 @@ class BaseLLM(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, repl: BaseREPL) -> BaseLLM | None:
+    def load(cls, repl: BaseREPL, **kwargs) -> BaseLLM | None:
         """Load the LLM."""
 
     @abstractmethod

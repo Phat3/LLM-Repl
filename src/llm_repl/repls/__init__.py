@@ -29,11 +29,12 @@ class BaseREPL(ABC):
         """
 
     @abstractmethod
-    def load_llm(self, llm_name: str):
+    def load_llm(self, llm_name: str, **llm_kwargs):
         """
         Load the LLM specified by the name and its custom commands if any
 
         :param str llm_name: The name of the LLM to load
+        :param dict llm_kwargs: The kwargs to pass to the LLM
         """
 
     @abstractmethod
@@ -44,24 +45,19 @@ class BaseREPL(ABC):
         :param Any msg: The message to be printed.
         """
 
-    def print_error_msg(self, msg: str):
-        """
-        Prints the error message in the console.
-
-        :param str msg: The message to be printed.
-        """
-
+    @abstractmethod
     async def handle_msg(self, *args, **kwargs):
         """
         Handle client message
         """
 
     @abstractmethod
-    async def run(self, llm_name):
+    async def run(self, llm_name, **llm_kwargs):
         """
         Starts the REPL
 
         :param str llm_name: The name of the LLM to load
+        :param dict llm_kwargs: The kwargs to pass to the LLM
         """
 
 
