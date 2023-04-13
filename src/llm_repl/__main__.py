@@ -1,23 +1,13 @@
-import sys
 import asyncio
 import importlib
 import os
 import argparse
-import pydantic
 
-from llm_repl.repls import REPLStyle, REPLS
+from llm_repl.repls import REPLS
 from llm_repl.llms import LLMS
 
 LLMS_DIR = os.path.join(os.path.dirname(__file__), "llms")
 REPLS_DIR = os.path.join(os.path.dirname(__file__), "repls")
-
-# FIXME: This is temporary for test. This will be passed in the configuration file
-CONFIGS = {
-    "client_msg_color": "bold green",
-    "server_msg_color": "bold blue",
-    "error_msg_color": "bold red",
-    "misc_msg_color": "gray",
-}
 
 
 def load_modules_from_directory(path):
@@ -54,16 +44,10 @@ def main():
         choices=REPLS.keys(),
     )
     parser.add_argument(
-        "--port", type=int, help="The port to connect to the LLM server"
+        "--port", type=int, help="The port to connect to the LLM server", default=8000
     )
 
     args = parser.parse_args()
 
-    try:
-        style = REPLStyle(**CONFIGS)
-    except pydantic.ValidationError:
-        print("Invalid style configuration")
-        sys.exit(1)
-
-    repl = REPLS[args.repl](style=style, port=args.port)
+    repl = REPLS[args.repl](port=args.port)
     asyncio.get_event_loop().run_until_complete(repl.run(args.llm))

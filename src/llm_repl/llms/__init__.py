@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type
 
-from llm_repl.repls import BaseREPL
+from llm_repl.repls import BaseClientHandler
 
 
 class BaseLLM(ABC):
@@ -24,7 +24,7 @@ class BaseLLM(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, repl: BaseREPL, **kwargs) -> BaseLLM | None:
+    def load(cls, client_handler: BaseClientHandler, **llm_kwargs) -> BaseLLM:
         """Load the LLM."""
 
     @abstractmethod

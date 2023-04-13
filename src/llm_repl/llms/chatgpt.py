@@ -5,7 +5,7 @@ import pkg_resources  # type: ignore
 import yaml
 import pydantic
 
-from typing import Optional, Any, List
+from typing import Dict, Any, List
 
 from langchain.callbacks.base import AsyncCallbackManager, AsyncCallbackHandler
 from langchain.chat_models import ChatOpenAI
@@ -18,7 +18,7 @@ from langchain.prompts import (
 )
 from langchain.chains import ConversationChain
 
-from llm_repl.repls import BaseREPL
+from llm_repl.repls import BaseClientHandler
 from llm_repl.llms import BaseLLM, LLMS
 from llm_repl import exceptions
 
@@ -38,26 +38,40 @@ class ChatGPTPersonality(pydantic.BaseModel):
 class AsyncChatGPTStreamingCallbackHandler(AsyncCallbackHandler):
     """Callback handler for streaming. Only works with LLMs that support streaming."""
 
-    def __init__(self, repl: BaseREPL) -> None:
+    def __init__(
+        self, client_handler: BaseClientHandler, is_in_streaming_mode: bool
+    ) -> None:
         super().__init__()
-        self.repl = repl
+        self.is_in_streaming_mode = is_in_streaming_mode
+        self.client_handler = client_handler
 
     async def on_llm_new_token(self, token: str, **kwargs: Any):
         """Run on new LLM token. Only available when streaming is enabled."""
-        await self.repl.print(token)
+        await self.client_handler.add_token(token)
+
+    async def on_llm_start(
+        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
+    ) -> None:
+        if self.is_in_streaming_mode:
+            await self.client_handler.add_token(self.client_handler.start_token)
+
+    async def on_llm_end(self, response, **kwargs: Any) -> None:
+        if self.is_in_streaming_mode:
+            await self.client_handler.add_token(self.client_handler.end_token)
 
 
 class ChatGPT(BaseLLM):
     def __init__(
         self,
         api_key: str,
-        repl: BaseREPL,
+        client_handler: BaseClientHandler,
         model_name: str = "gpt-3.5-turbo",
         personality: ChatGPTPersonality | None = None,
     ):
         self.api_key = api_key
         # TODO: Make options configurable
         self.streaming_mode = True
+        self.client_handler = client_handler
 
         # TODO: Make it customizable
         prompt = ChatPromptTemplate.from_messages(
@@ -73,7 +87,11 @@ class ChatGPT(BaseLLM):
             openai_api_key=self.api_key,
             streaming=self.streaming_mode,
             callback_manager=AsyncCallbackManager(
-                [AsyncChatGPTStreamingCallbackHandler(repl)]
+                [
+                    AsyncChatGPTStreamingCallbackHandler(
+                        self.client_handler, self.is_in_streaming_mode
+                    )
+                ]
             ),
             verbose=True,
             model_name=model_name,
@@ -102,7 +120,7 @@ class ChatGPT(BaseLLM):
         return [{"name": "say_hi", "function": self._say_hi}]
 
     @classmethod
-    def load(cls, repl: BaseREPL, **llm_kwargs) -> Optional[BaseLLM]:
+    def load(cls, client_handler: BaseClientHandler, **llm_kwargs) -> BaseLLM:
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key is None:
             raise exceptions.MissingAPIKey("OPENAI_API_KEY")
@@ -123,12 +141,15 @@ class ChatGPT(BaseLLM):
             )
 
         # TODO: Add autocomplete in repl
-        model = cls(api_key, repl, personality=personality)
+        model = cls(api_key, client_handler, personality=personality)
         return model
 
-    async def process(self, msg: str) -> str:
+    async def process(self, msg: str):
         resp = await self.model.apredict(input=msg)
-        return resp.strip()
+        if not self.is_in_streaming_mode:
+            await self.client_handler.add_token(self.client_handler.start_token)
+            await self.client_handler.add_token(resp)
+            await self.client_handler.add_token(self.client_handler.end_token)
 
 
 LLMS["chatgpt"] = ChatGPT

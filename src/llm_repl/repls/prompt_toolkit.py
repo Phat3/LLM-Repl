@@ -1,6 +1,7 @@
 import sys
+import asyncio
 
-from typing import Any
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import NestedCompleter
@@ -11,18 +12,38 @@ from rich.markdown import Markdown
 
 from llm_repl import exceptions
 from llm_repl.llms import BaseLLM, LLMS
-from llm_repl.repls import BaseREPL, REPLStyle, REPLS
+from llm_repl.repls import BaseREPL, REPLS, BaseClientHandler
+
+# FIXME: This is temporary for test. This will be passed in the configuration file
 
 
-class PromptToolkitREPL(BaseREPL):
+class REPLStyle(BaseModel):
+    """
+    The style of the REPL
+    """
+
+    client_msg_color: str
+    server_msg_color: str
+    error_msg_color: str
+    misc_msg_color: str
+
+
+class PromptToolkitClientHandler(BaseClientHandler):
 
     LOADING_MSG = "Thinking..."
     SERVER_MSG_TITLE = "LLM"
     CLIENT_MSG_TITLE = "You"
     ERROR_MSG_TITLE = "ERROR"
     INTRO_BANNER = "Welcome to LLM REPL! Input your message and press enter twice to send it to the LLM (type 'exit' or 'quit' to quit the application)"
+    DEFAULT_STYLE = REPLStyle(
+        client_msg_color="bold green",
+        server_msg_color="bold blue",
+        error_msg_color="bold red",
+        misc_msg_color="gray",
+    )
 
-    def __init__(self, **kwargs):
+    def __init__(self, style: None | REPLStyle = None):
+        super().__init__()
         self.console = Console()
         self.completer_function_table = self._basic_completer_function_table
         self.kb = KeyBindings()
@@ -32,16 +53,36 @@ class PromptToolkitREPL(BaseREPL):
             complete_while_typing=True,
             complete_in_thread=True,
         )
-        self._style: REPLStyle = kwargs["style"]
+        self._style = style if style is not None else self.DEFAULT_STYLE
         # This will hold the reference to the model currently loaded
         self.llm: BaseLLM | None = None
         self.parse_markdown = True
         self.is_code_mode = False
         self.code_block = ""
+        self.queue_is_empty_condition = asyncio.Condition()
 
     @property
     def style(self) -> REPLStyle:
         return self._style
+
+    @property
+    def _basic_completer_function_table(self):
+        return {
+            "info": self.info,
+            "exit": self.exit,
+            "quit": self.exit,
+            "llm": self.load_llm,
+        }
+
+    @property
+    def start_token(self) -> str:
+        """Return the marker that act as start token"""
+        return "[START]"
+
+    @property
+    def end_token(self) -> str:
+        """Return the marker that act as end token"""
+        return "[DONE]"
 
     # ----------------------------- COMMANDS -----------------------------
 
@@ -60,7 +101,7 @@ class PromptToolkitREPL(BaseREPL):
         self.console.rule(style=self._style.misc_msg_color)
         sys.exit(0)
 
-    def load_llm(self, llm_name: str, **llm_kwargs):
+    def load_llm(self, llm_name: str, **_llm_kwargs) -> BaseLLM:
         """
         Load the LLM specified by the name and its custom commands if any
 
@@ -72,12 +113,12 @@ class PromptToolkitREPL(BaseREPL):
         if llm_name not in LLMS:
             raise exceptions.LLMNotFound(llm_name)
 
-        llm = LLMS[llm_name]
-        self.llm = llm.load(self)  # type: ignore
+        llm_class = LLMS[llm_name]
+        llm = llm_class.load(self)
 
         # Add LLMs specific custom commands to the completer and to the function table
         custom_commands_table = {}
-        for custom_command in self.llm.custom_commands:  # type: ignore
+        for custom_command in llm.custom_commands:  # type: ignore
             custom_commands_table[custom_command["name"]] = custom_command["function"]
 
         self.completer_function_table = (
@@ -87,15 +128,7 @@ class PromptToolkitREPL(BaseREPL):
             {cmd: None for cmd in self.completer_function_table.keys()}
         )
         self.session.app.invalidate()
-
-    @property
-    def _basic_completer_function_table(self):
-        return {
-            "info": self.info,
-            "exit": self.exit,
-            "quit": self.exit,
-            "llm": self.load_llm,
-        }
+        return llm
 
     # ----------------------------- END COMMANDS -----------------------------
 
@@ -133,35 +166,6 @@ class PromptToolkitREPL(BaseREPL):
             self.console.rule(f"[{color}]{title}", style=color)
         self.console.print(msg, justify=justify)  # type: ignore
         self.console.rule(style=color)
-
-    async def print(self, msg: Any, **kwargs):
-        """
-        Simply prints the message as a normal print statement.
-
-        :param str msg: The message to be printed.
-        """
-        if not self.parse_markdown:
-            self.console.print(msg, end="")
-            return
-
-        # FIXME: This is just an hack to make the code blocks work
-        #        This should be done properly in the future
-        if msg == "\n\n":
-            msg = ""
-        if msg == "``" or msg == "```":
-            if self.code_block:
-                self.console.print(Markdown(self.code_block + "```\n"))
-                self.code_block = ""
-                self.is_code_mode = not self.is_code_mode
-                return
-            self.is_code_mode = not self.is_code_mode
-            self.code_block = msg
-        elif self.is_code_mode:
-            self.code_block += msg
-        else:
-            if msg == "`\n" or msg == "`\n\n":
-                msg = "\n"
-            self.console.print(msg, end="")
 
     def print_client_msg(self, msg: str):
         """
@@ -219,67 +223,110 @@ class PromptToolkitREPL(BaseREPL):
         def _(_):
             self.exit()
 
-    async def handle_msg(self, *args, **kwargs):
-        """
-        Handle the user input and send it to the LLM
+    async def print_loop(self):
+        while True:
+            msg = await self.tokens.get()
+            # Print an horizontal ruler with title if the message is the start token
+            if msg == self.start_token:
+                self.console.rule(
+                    f"[{self._style.server_msg_color}]{self.SERVER_MSG_TITLE}",
+                    style=self._style.server_msg_color,
+                )
+                self.tokens.task_done()
+                continue
+            # Print an horizontal ruler if the message is the end token
+            if msg == self.end_token:
+                if self.llm.is_in_streaming_mode:  # type: ignore
+                    self.console.print()
+                self.console.rule(style=self._style.server_msg_color)
+                self.tokens.task_done()
+                continue
+            # Skip the markdown parsing if the user has disabled it
+            if not self.parse_markdown:
+                self.console.print(msg, end="")
+                self.tokens.task_done()
+                continue
+            # If the LLM is not in streaming mode, there is no need to
+            # parse the markdown incrementally since we already have the
+            # whole message
+            if not self.llm.is_in_streaming_mode:  # type: ignore
+                self.console.print(Markdown(msg), end="")
+                self.tokens.task_done()
+                continue
+            # Otherwise, we need to parse the markdown incrementally
+            # FIXME: This is just an hack to make the code blocks work
+            #        This should be done properly in the future
+            if msg == "\n\n":
+                msg = ""
+            if msg == "``" or msg == "```":
+                if self.code_block:
+                    self.console.print(Markdown(self.code_block + "```\n"))
+                    self.code_block = ""
+                    self.is_code_mode = not self.is_code_mode
+                    self.tokens.task_done()
+                    continue
+                self.is_code_mode = not self.is_code_mode
+                self.code_block = msg
+            elif self.is_code_mode:
+                self.code_block += msg
+            else:
+                if msg == "`\n" or msg == "`\n\n":
+                    msg = "\n"
+                self.console.print(msg, end="")
+            self.tokens.task_done()
 
-        :param BaseLLM llm: The LLM to send the message to
-        """
-        llm: BaseLLM = kwargs["llm"]
-        user_input = await self.session.prompt_async("> ")
-        user_input = user_input.rstrip()
-        # Check if the input is a custom command
-        if user_input in self.completer_function_table:
-            self.completer_function_table[user_input]()
-            return
-
-        # Otherwise, process the input as a normal message that has
-        # to be sent to the LLM
-        self.print_client_msg(user_input)
-        if not llm.is_in_streaming_mode:
-            self.print_misc_msg(self.LOADING_MSG)
-        # If the LLM is in streaming mode, The LLM itself will print the
-        # response character by character and we just need to print a
-        # the "start" and "end" rule line.
-        # This can in theory be done by the StreamingCallback provided
-        # by langchain but it appears to be broken in this version of
-        # langchain.
-        else:
-            self.console.rule(
-                f"[{self._style.server_msg_color}]{self.SERVER_MSG_TITLE}",
-                style=self._style.server_msg_color,
-            )
-        resp = await llm.process(user_input)
-        if not llm.is_in_streaming_mode:
-            self.print_server_msg(resp)
-        else:
-            self.console.print()
-            self.console.rule(style=self._style.server_msg_color)
-
-    async def run(self, llm_name: str, **llm_kwargs):
-        """
-        Starts the REPL.
-
-        The REPL will continue to run until the user presses Ctrl+C.
-
-        The user can enter new lines in the REPL by pressing Enter once. The
-        REPL will terminate when the user presses Enter twice.
-
-        :param BaseLLM llm: The LLM to use.
-        """
+    async def start(self, llm_name: str, **llm_kwargs):
+        # Setup the keybindings for the Terminal prompt
         self._setup_keybindings()
+        # Load the specified LLM
         try:
-            self.load_llm(llm_name)
+            self.llm = self.load_llm(llm_name)
         except exceptions.LLMException as e:
             self.print_error_msg(e.msg)
             return
-
+        # Start the print loop
+        asyncio.create_task(self.print_loop())
         self.print_misc_msg(
             f"{self.INTRO_BANNER}\n\nLoaded model: {self.llm.name}", justify="center"  # type: ignore
         )
 
         while True:
-            await self.handle_msg(llm=self.llm)
+            # Wait if something is getting printed
+            await self.tokens.join()
+            # Get the user input
+            user_input = await self.session.prompt_async("> ")
+            user_input = user_input.rstrip()
+            # Check if the input is a custom command
+            if user_input in self.completer_function_table:
+                self.completer_function_table[user_input]()
+                continue
+            # Otherwise, process the input as a normal message that has
+            # to be sent to the LLM
+            self.print_client_msg(user_input)
+            if not self.llm.is_in_streaming_mode:
+                self.print_misc_msg(self.LOADING_MSG)
+            await self.llm.process(user_input)
+
+
+class PromptToolkitREPL(BaseREPL):
+    def __init__(self, *_args, **kwargs):
+        style = kwargs.pop("style", None)
+        self.client_handler = self.get_client_handler("prompt_toolkit", style=style)
+
+    @staticmethod
+    def create_client_handler(**kwargs) -> BaseClientHandler:
+        return PromptToolkitClientHandler(**kwargs)
+
+    async def run(self, llm_name: str, **llm_kwargs):
+        """
+        Starts the REPL.
+
+        The user can enter new lines in the REPL by pressing Enter once. The
+        REPL will terminate when the user presses Enter twice.
+
+        :param str llm_name: The name of the LLM to use.
+        """
+        await self.client_handler.start(llm_name, **llm_kwargs)
 
 
 REPLS["prompt_toolkit"] = PromptToolkitREPL
