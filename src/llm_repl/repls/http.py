@@ -14,6 +14,9 @@ from llm_repl.llms import BaseLLM, LLMS
 
 from sse_starlette.sse import EventSourceResponse
 
+# FIXME: Make this configurable
+SSE_PING_INTERVAL = 600  # minutes
+
 
 class Settings(BaseSettings):
     llm_name: str = "chatgpt"
@@ -40,7 +43,9 @@ async def message_stream(request: Request, params: Params):
     # In the meantime let the LLM process the message
     asyncio.create_task(client_handler.process(message=message))  # type: ignore
     # Setup the SSE response
-    return EventSourceResponse(client_handler.print_loop())
+    event_source = EventSourceResponse(client_handler.print_loop())
+    event_source.ping_interval = SSE_PING_INTERVAL
+    return event_source
 
 
 class HttpClientHandler(BaseClientHandler):
