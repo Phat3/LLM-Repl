@@ -28,7 +28,10 @@ dependencies = [
   "langchain",
   "openai",
   "pydantic",
-  "websockets"
+  "websockets",
+  "fastapi",
+  "uvicorn",
+  "pinecone-client"
 ]
 
 [project.optional-dependencies]
@@ -39,9 +42,6 @@ DEV = [
   "pytest",
   "mypy",
   "pre-commit",
-  "fastapi",
-  "uvicorn",
-  "pinecone-client"
 ]
 
 [project.urls]
