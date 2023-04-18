@@ -31,7 +31,9 @@ dependencies = [
   "websockets",
   "fastapi",
   "uvicorn",
-  "pinecone-client"
+  "pinecone-client",
+  "jinja2",
+  "sse_starlette"
 ]
 
 [project.optional-dependencies]
