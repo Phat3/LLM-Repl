@@ -47,8 +47,8 @@ DEV = [
 ]
 
 [project.urls]
-homepage = "https://github.com/Phat3/ChatGPT-REPL"
-repository = "https://github.com/Phat3/ChatGPT-REPL.git"
+homepage = "https://github.com/Phat3/LLM-Repl"
+repository = "https://github.com/Phat3/LLM-Repl.git"
 
 [tool.pylint.master]
 ignored-modules = ""
