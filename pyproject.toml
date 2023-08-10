@@ -25,7 +25,7 @@ requires-python = ">=3.10"
 dependencies = [
   "prompt_toolkit",
   "rich",
-  "langchain == 0.0.133",
+  "langchain==0.0.261",
   "openai",
   "pydantic",
   "websockets",

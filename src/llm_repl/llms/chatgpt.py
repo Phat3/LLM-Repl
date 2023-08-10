@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+from uuid import UUID
+from langchain.schema.messages import BaseMessage
 import pkg_resources  # type: ignore
 import yaml
 import pydantic
 
 from typing import Dict, Any, List
 
-from langchain.callbacks.base import AsyncCallbackManager, AsyncCallbackHandler
+from langchain.callbacks.base import AsyncCallbackHandler
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import (
@@ -59,6 +61,19 @@ class AsyncChatGPTStreamingCallbackHandler(AsyncCallbackHandler):
         if self.is_in_streaming_mode:
             await self.client_handler.add_token(self.client_handler.end_token)
 
+    async def on_chat_model_start(
+        self,
+        serialized: Dict[str, Any],
+        messages: List[List[BaseMessage]],
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        tags: List[str] | None = None,
+        metadata: Dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        pass
+
 
 class ChatGPT(BaseLLM):
     def __init__(
@@ -86,13 +101,11 @@ class ChatGPT(BaseLLM):
         llm = ChatOpenAI(
             openai_api_key=self.api_key,
             streaming=self.streaming_mode,
-            callback_manager=AsyncCallbackManager(
-                [
-                    AsyncChatGPTStreamingCallbackHandler(
-                        self.client_handler, self.is_in_streaming_mode
-                    )
-                ]
-            ),
+            callbacks=[
+                AsyncChatGPTStreamingCallbackHandler(
+                    self.client_handler, self.is_in_streaming_mode
+                )
+            ],
             verbose=True,
             model_name=model_name,
         )  # type: ignore
