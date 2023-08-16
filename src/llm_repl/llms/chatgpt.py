@@ -51,12 +51,6 @@ class AsyncChatGPTStreamingCallbackHandler(AsyncCallbackHandler):
         """Run on new LLM token. Only available when streaming is enabled."""
         await self.client_handler.add_token(token)
 
-    async def on_llm_start(
-        self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
-    ) -> None:
-        if self.is_in_streaming_mode:
-            await self.client_handler.add_token(self.client_handler.start_token)
-
     async def on_llm_end(self, response, **kwargs: Any) -> None:
         if self.is_in_streaming_mode:
             await self.client_handler.add_token(self.client_handler.end_token)
@@ -72,7 +66,8 @@ class AsyncChatGPTStreamingCallbackHandler(AsyncCallbackHandler):
         metadata: Dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
-        pass
+        if self.is_in_streaming_mode:
+            await self.client_handler.add_token(self.client_handler.start_token)
 
 
 class ChatGPT(BaseLLM):

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-repl"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
     {name = "Sebastiano Mariani", email = "mariani.sebastiano@gmail.com"},
 ]
@@ -60,4 +60,4 @@ W0142,C0301,C0321,C0322,C0324,R,W0232,E1001,W0212,W0703,C,I0011,I0012,I0013,E001
 llm-repl = "llm_repl.__main__:main"
 
 [tool.setuptools.package-data]
-"mypkg.data" = ["*.yml"]
+"llm_repl.data.chatgpt.personalities" = ["*.yml"]
